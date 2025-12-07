@@ -89,9 +89,15 @@ router.post("/google", async (req, res) => {
   try {
     const { credential } = req.body;
     
+    console.log("Received Google auth request");
+    
     if (!credential) {
+      console.log("No credential provided");
       return res.status(400).json({ message: "Google credential is required" });
     }
+
+    console.log(`Credential length: ${credential.length}`);
+    console.log(`Expected Audience (Client ID): ${process.env.GOOGLE_CLIENT_ID}`);
 
     // Verify Google token
     const ticket = await client.verifyIdToken({
@@ -100,12 +106,15 @@ router.post("/google", async (req, res) => {
     });
     
     const payload = ticket.getPayload();
+    console.log("Google payload verified:", payload.email);
+    
     const { email, name, picture, sub: googleId } = payload;
 
     // Check if user exists
     let user = await User.findOne({ email });
     
     if (user) {
+      console.log("User exists, updating...");
       // Update Google ID and picture if not set
       if (!user.googleId) {
         user.googleId = googleId;
@@ -113,6 +122,7 @@ router.post("/google", async (req, res) => {
         await user.save();
       }
     } else {
+      console.log("Creating new user...");
       // Create new user
       user = new User({
         name,
@@ -133,8 +143,11 @@ router.post("/google", async (req, res) => {
     
     res.status(200).json({ ...userObject, token });
   } catch (err) {
-    console.error("Google auth error:", err);
-    res.status(500).json({ message: "Google authentication failed", error: err.message });
+    console.error("Google auth error details:", err);
+    res.status(500).json({ 
+      message: "Google authentication failed: " + err.message, 
+      error: err.message 
+    });
   }
 });
 
